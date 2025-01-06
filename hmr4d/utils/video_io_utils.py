@@ -96,6 +96,7 @@ def copy_file(video_path, out_video_path, overwrite=True):
 
 
 def merge_videos_horizontal(in_video_paths: list, out_video_path: str):
+    """将两处的图片序列，水平合并拼接 成视频"""
     if len(in_video_paths) < 2:
         raise ValueError("At least two video paths are required for merging.")
     inputs = [ffmpeg.input(path) for path in in_video_paths]

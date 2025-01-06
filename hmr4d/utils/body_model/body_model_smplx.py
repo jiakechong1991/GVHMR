@@ -38,10 +38,10 @@ class BodyModelSMPLX(nn.Module):
 
     def forward(
         self,
-        betas=None,
-        global_orient=None,
-        transl=None,
-        body_pose=None,
+        betas=None,  # body shape参数
+        global_orient=None,  #控制全局朝向
+        transl=None,  # 控制全局平移
+        body_pose=None,  # body的joint旋转参数 [帧数，joint_num(21), 3]
         left_hand_pose=None,
         right_hand_pose=None,
         expression=None,

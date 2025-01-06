@@ -182,9 +182,12 @@ def render_incam(cfg):
         Log.info(f"[Render Incam] Video already exists at {incam_video_path}")
         return
 
+    # 加载动作数据
     pred = torch.load(cfg.paths.hmr4d_results)
+    # 获得身体模型
     smplx = make_smplx("supermotion").cuda()
     smplx2smpl = torch.load("hmr4d/utils/body_model/smplx2smpl_sparse.pt").cuda()
+    # 获得脸部模型
     faces_smpl = make_smplx("smpl").faces
 
     # smpl
@@ -194,7 +197,7 @@ def render_incam(cfg):
     # -- rendering code -- #
     video_path = cfg.video_path
     length, width, height = get_video_lwh(video_path)
-    K = pred["K_fullimg"][0]
+    K = pred["K_fullimg"][0]  # 起始帧的相机姿态（我们选择的固定相机，则只有姿态，没有位置）
 
     # renderer
     renderer = Renderer(width, height, device="cuda", faces=faces_smpl, K=K)
@@ -205,6 +208,7 @@ def render_incam(cfg):
     verts_incam = pred_c_verts
     writer = get_writer(incam_video_path, fps=30, crf=CRF)
     for i, img_raw in tqdm(enumerate(reader), total=get_video_lwh(video_path)[0], desc=f"Rendering Incam"):
+        # 将每一帧动作，驱动mesh后，渲染出图像
         img = renderer.render_mesh(verts_incam[i].cuda(), img_raw, [0.8, 0.8, 0.8])
 
         # # bbx
@@ -295,14 +299,19 @@ if __name__ == "__main__":
         model: DemoPL = hydra.utils.instantiate(cfg.model, _recursive_=False)
         model.load_pretrained_model(cfg.ckpt_path)
         model = model.eval().cuda()
+        # 模型加载完毕
+
         tic = Log.sync_time()
+        # 执行推理
         pred = model.predict(data, static_cam=cfg.static_cam)
         pred = detach_to_cpu(pred)
         data_time = data["length"] / 30
         Log.info(f"[HMR4D] Elapsed: {Log.sync_time() - tic:.2f}s for data-length={data_time:.1f}s")
+        # 保存推理结果（身体姿态）
         torch.save(pred, paths.hmr4d_results)
 
     # ===== Render ===== #
+    # 根据身体识别结果，驱动人体模型，进行渲染
     render_incam(cfg)
     render_global(cfg)
     if not Path(paths.incam_global_horiz_video).exists():
