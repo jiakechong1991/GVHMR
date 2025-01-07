@@ -310,6 +310,26 @@ if __name__ == "__main__":
         # 保存推理结果（身体姿态）
         torch.save(pred, paths.hmr4d_results)
 
+        ###保存成pkl格式
+        pred_np = {}
+        pred_np['smpl_params_global'] = {}
+        pred_np['smpl_params_incam'] = {}
+        pred_np['smpl_params_global']['body_pose'] = pred['smpl_params_global']['body_pose'].cpu().numpy()
+        pred_np['smpl_params_global']['global_orient'] = pred['smpl_params_global']['global_orient'].cpu().numpy()
+        pred_np['smpl_params_global']['transl'] = pred['smpl_params_global']['transl'].cpu().numpy()
+        pred_np['smpl_params_global']['betas'] = pred['smpl_params_global']['betas'].cpu().numpy()
+        
+        pred_np['smpl_params_incam']['body_pose'] = pred['smpl_params_global']['body_pose'].cpu().numpy()
+        pred_np['smpl_params_incam']['global_orient'] = pred['smpl_params_global']['global_orient'].cpu().numpy()
+        pred_np['smpl_params_incam']['transl'] = pred['smpl_params_global']['transl'].cpu().numpy()
+        pred_np['smpl_params_incam']['betas'] = pred['smpl_params_global']['betas'].cpu().numpy()
+        import pickle
+        with open(paths.hmr4d_results+".pkl", 'wb') as handle:
+            pickle.dump(pred_np, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+
+
     # ===== Render ===== #
     # 根据身体识别结果，驱动人体模型，进行渲染
     render_incam(cfg)
