@@ -20,7 +20,11 @@ class VitPoseExtractor:
         self.tqdm_leave = tqdm_leave
 
     @torch.no_grad()
-    def extract(self, video_path, bbx_xys, img_ds=0.5):
+    def extract(self, 
+            video_path, 
+            bbx_xys,  # bounding boxes 的坐标，格式为 (x1, y1, x2, y2)，用于定位图像中的人体区域
+            img_ds=0.5  # 图像下采样比例，用于减少图像分辨率，提高处理速度
+            ):
         # Get the batch
         if isinstance(video_path, str):
             imgs, bbx_xys = get_batch(video_path, bbx_xys, img_ds=img_ds)

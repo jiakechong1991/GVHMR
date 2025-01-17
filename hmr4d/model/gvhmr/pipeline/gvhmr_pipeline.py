@@ -61,6 +61,7 @@ class Pipeline(nn.Module):
         if self.args.normalize_cam_angvel:
             f_cam_angvel = (f_cam_angvel - self.cam_angvel_mean) / self.cam_angvel_std
         f_condition = {
+
             "obs": inputs["obs"],  # (B, L, J, 3)
             "f_cliffcam": cliff_cam,  # (B, L, 3)
             "f_cam_angvel": f_cam_angvel,  # (B, L, C=6)
@@ -72,6 +73,7 @@ class Pipeline(nn.Module):
         # Forward & output
         model_output = self.denoiser3d(length=length, **f_condition)  # pred_x, pred_cam, static_conf_logits
         decode_dict = self.endecoder.decode(model_output["pred_x"])  # (B, L, C) -> dict
+        ### outputs
         outputs.update({"model_output": model_output, "decode_dict": decode_dict})
 
         # Post-processing

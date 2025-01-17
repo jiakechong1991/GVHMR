@@ -85,6 +85,7 @@ def parse_args_to_cfg():
 
 @torch.no_grad()
 def run_preprocess(cfg):
+    """进行预处理"""
     Log.info(f"[Preprocess] Start!")
     tic = Log.time()
     video_path = cfg.video_path
@@ -94,6 +95,7 @@ def run_preprocess(cfg):
 
     # Get bbx tracking result
     if not Path(paths.bbx).exists():
+        #yolo进行人物 box追踪
         tracker = Tracker()
         bbx_xyxy = tracker.get_one_track(video_path).float()  # (L, 4)
         bbx_xys = get_bbx_xys_from_xyxy(bbx_xyxy, base_enlarge=1.2).float()  # (L, 3) apply aspect ratio and enlarge
@@ -110,6 +112,7 @@ def run_preprocess(cfg):
 
     # Get VitPose
     if not Path(paths.vitpose).exists():
+        # vitpose进行关键点检测
         vitpose_extractor = VitPoseExtractor()
         vitpose = vitpose_extractor.extract(video_path, bbx_xys)
         torch.save(vitpose, paths.vitpose)
@@ -124,6 +127,7 @@ def run_preprocess(cfg):
 
     # Get vit features
     if not Path(paths.vit_features).exists():
+        # recovery human shape and pose
         extractor = Extractor()
         vit_features = extractor.extract_video_features(video_path, bbx_xys)
         torch.save(vit_features, paths.vit_features)
@@ -137,6 +141,7 @@ def run_preprocess(cfg):
             length, width, height = get_video_lwh(cfg.video_path)
             K_fullimg = estimate_K(width, height)
             intrinsics = convert_K_to_K4(K_fullimg)
+            # 使用dpvo进行相机位姿估计
             slam = SLAMModel(video_path, width, height, intrinsics, buffer=4000, resize=0.5)
             bar = tqdm(total=length, desc="DPVO")
             while True:
@@ -157,21 +162,22 @@ def load_data_dict(cfg):
     paths = cfg.paths
     length, width, height = get_video_lwh(cfg.video_path)
     if cfg.static_cam:
-        R_w2c = torch.eye(3).repeat(length, 1, 1)
+        R_w2c = torch.eye(3).repeat(length, 1, 1)  # torch.eye(3) 重复length次
     else:
         traj = torch.load(cfg.paths.slam)
         traj_quat = torch.from_numpy(traj[:, [6, 3, 4, 5]])
-        R_w2c = quaternion_to_matrix(traj_quat).mT
+        R_w2c = quaternion_to_matrix(traj_quat).mT  # world to camera的旋转矩阵
+    # 获得相机的内参矩阵
     K_fullimg = estimate_K(width, height).repeat(length, 1, 1)
     # K_fullimg = create_camera_sensor(width, height, 26)[2].repeat(length, 1, 1)
 
     data = {
-        "length": torch.tensor(length),
-        "bbx_xys": torch.load(paths.bbx)["bbx_xys"],
-        "kp2d": torch.load(paths.vitpose),
-        "K_fullimg": K_fullimg,
-        "cam_angvel": compute_cam_angvel(R_w2c),
-        "f_imgseq": torch.load(paths.vit_features),
+        "length": torch.tensor(length),  # frame len
+        "bbx_xys": torch.load(paths.bbx)["bbx_xys"], # (L, 4)  # 人体的边界框
+        "kp2d": torch.load(paths.vitpose), # (L,3) # vit提取的关键点
+        "K_fullimg": K_fullimg, # (F, 3, 3)  # 相机内参矩阵
+        "cam_angvel": compute_cam_angvel(R_w2c), #(F, 3)  # 相机姿态
+        "f_imgseq": torch.load(paths.vit_features), #(F, 3, 256, 256)
     }
     return data
 
@@ -298,6 +304,7 @@ if __name__ == "__main__":
         Log.info("[HMR4D] Predicting")
         model: DemoPL = hydra.utils.instantiate(cfg.model, _recursive_=False)
         model.load_pretrained_model(cfg.ckpt_path)
+        # .eval：将model设置为评估模式，即不会更新模型参数，drpout和normalization层会关闭
         model = model.eval().cuda()
         # 模型加载完毕
 
